@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pagar con Stripe</title>
+  <script src="https://js.stripe.com/v3/"></script> <!-- Incluye el SDK de Stripe -->
+  
+  <style>
+    /* Estilos generales */
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    /* Contenedor del formulario */
+    .payment-container {
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      padding: 2rem;
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+    }
+
+    /* Título */
+    h1 {
+      font-size: 24px;
+      margin-bottom: 1rem;
+      color: #333;
+    }
+
+    /* Campo de la tarjeta de crédito */
+    #card-element {
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin-bottom: 1.5rem;
+      background-color: #f9f9f9;
+    }
+
+    /* Campo de monto a pagar con estilos personalizados */
+    #amount {
+      font-family: 'Arial', sans-serif;
+      font-size: 18px;
+      padding: 12px;
+      width: 90%;
+      margin-bottom: 1.5rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background-color: #f9f9f9;
+    }
+
+    /* Botón de pago */
+    button {
+      background-color: #6772e5;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 12px;
+      font-size: 16px;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    button:hover {
+      background-color: #5469d4;
+    }
+
+    /* Mensajes de resultado */
+    #payment-result {
+      margin-top: 1rem;
+      font-size: 14px;
+      color: red;
+    }
+
+    /* Efectos de carga */
+    button:disabled {
+      background-color: #bbb;
+    }
+
+    /* Spinner para indicar que el pago está en proceso */
+    .spinner {
+      border: 4px solid rgba(0, 0, 0, 0.1);
+      border-left-color: #fff;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Contenedor principal del formulario de pago -->
+  <div class="payment-container">
+    <h1>Paga tu servicio</h1>
+
+    <!-- Formulario de pago -->
+    <form id="payment-form">
+      <input type="number" id="amount" placeholder="Monto a pagar (USD)" min="1" step="0.01" required> <!-- Campo para ingresar el monto -->
+      <div id="card-element"><!-- Stripe tarjeta de crédito --></div>
+      <button type="submit" id="submit-button">Pagar</button>
+      <div id="spinner" style="display:none" class="spinner"></div>
+      <div id="payment-result"></div> <!-- Resultado del pago -->
+    </form>
+  </div>
+
+  <script>
+    // Configura Stripe con tu clave pública
+    const stripe = Stripe('TU_CLAVE_PUBLICA_DE_STRIPE'); // Reemplaza con tu clave pública
+    const elements = stripe.elements();
+    const cardElement = elements.create('card', {
+    hidePostalCode: true // Oculta el campo de código postal
+    });
+    // Crea un campo de tarjeta de crédito
+    cardElement.mount('#card-element'); // Monta el campo de tarjeta en el div
+
+    // Elementos de la interfaz
+    const form = document.getElementById('payment-form');
+    const submitButton = document.getElementById('submit-button');
+    const spinner = document.getElementById('spinner');
+    const paymentResult = document.getElementById('payment-result');
+
+    // Manejador del formulario cuando se envía
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      // Deshabilita el botón y muestra el spinner mientras se procesa el pago
+      submitButton.disabled = true;
+      spinner.style.display = 'inline-block';
+
+      const amount = document.getElementById('amount').value; // Obtén el monto ingresado
+
+      // Crea un token para la tarjeta ingresada
+      const {token, error} = await stripe.createToken(cardElement);
+
+      if (error) {
+        // Muestra el error si ocurre
+        paymentResult.textContent = error.message;
+        submitButton.disabled = false; // Reactiva el botón si hay error
+        spinner.style.display = 'none'; // Oculta el spinner
+      } else {
+        // Envía el token y el monto al servidor (backend) para procesar el pago
+        const response = await fetch('/procesar_pago', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ token: token.id, amount: amount }), // Incluye el monto en la solicitud
+        });
+
+        // Muestra el resultado del pago
+        const data = await response.json();
+        paymentResult.textContent = data.message;
+        spinner.style.display = 'none'; // Oculta el spinner
+        submitButton.disabled = false; // Reactiva el botón
+      }
+    });
+  </script>
+</body>
+</html>
